@@ -12,7 +12,7 @@
   --color-lingua-green: #21C16B;
 
   /* Semantic */
-  --color-success: #21C16B;
+  --color-success: #21C16B; /* alias of --color-lingua-green */
   --color-warning: #FFCB00;
   --color-streak: #FF8A00;
   --color-error: #FF4D4F;
@@ -26,7 +26,7 @@
   --color-background: #FFFFFF;
 
   /* Font family — default sans maps to Poppins Regular */
-  --font-family-sans: "Poppins-Regular", system-ui, sans-serif;
+  --font-family-sans: "Poppins-Regular", system-ui, sans-serif; /* fallbacks apply on web only */
 }
 
 /* ── Typography scale utilities ─────────────────────────────
