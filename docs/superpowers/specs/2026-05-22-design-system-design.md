@@ -84,9 +84,14 @@ Tailwind v4 CSS custom properties that NativeWind maps to utility classes:
 - etc.
 
 BEM composite utilities defined via `@layer utilities` for bundled text scales:
-- `.text-scale-h1` — sets font-size + font-weight + line-height for H1
-- `.text-scale-body-medium` — same for Body Medium
-- etc.
+- `.text-h1` — sets font-size + font-weight + line-height for H1
+- `.text-h2` — same for H2
+- `.text-h3` — same for H3
+- `.text-h4` — same for H4
+- `.text-body-lg` — same for Body Large
+- `.text-body-md` — same for Body Medium
+- `.text-body-sm` — same for Body Small
+- `.text-caption` — same for Caption
 
 These spare repeated class combinations on every Text component.
 
@@ -95,7 +100,7 @@ These spare repeated class combinations on every Text component.
 ## Font Loading — `_layout.tsx`
 
 1. Call `useFonts()` from `expo-font` with all 4 Poppins weights mapped to named keys:
-   - `Poppins_400Regular`, `Poppins_500Medium`, `Poppins_600SemiBold`, `Poppins_700Bold`
+   - `Poppins-Regular`, `Poppins-Medium`, `Poppins-SemiBold`, `Poppins-Bold` (hyphen convention — fonts loaded locally, not from `@expo-google-fonts`)
 2. Call `SplashScreen.preventAutoHideAsync()` before the component renders.
 3. Once `fontsLoaded` is true, call `SplashScreen.hideAsync()` in a `useEffect`.
 4. Return `null` while fonts are loading to prevent flash of unstyled text.

@@ -15,7 +15,7 @@ const colorSwatches = [
 export default function Index() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
-      <ScrollView className="px-5 py-6">
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingVertical: 24 }}>
         <Text className="text-h1 text-text-primary mb-1">Design System</Text>
         <Text className="text-body-md text-text-secondary mb-8">
           Lingua brand tokens — colors & typography
