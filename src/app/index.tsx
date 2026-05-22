@@ -1,98 +1,48 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScrollView, View, Text } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+const colorSwatches = [
+  { label: "Lingua Purple", className: "bg-lingua-purple" },
+  { label: "Lingua Deep Purple", className: "bg-lingua-deep-purple" },
+  { label: "Lingua Blue", className: "bg-lingua-blue" },
+  { label: "Lingua Green", className: "bg-lingua-green" },
+  { label: "Warning", className: "bg-warning" },
+  { label: "Streak", className: "bg-streak" },
+  { label: "Error", className: "bg-error" },
+  { label: "Surface", className: "bg-surface border border-border" },
+];
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+export default function Index() {
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
+      <ScrollView className="flex-1 px-5 py-6">
+        <Text className="text-h1 text-text-primary mb-1">Design System</Text>
+        <Text className="text-body-md text-text-secondary mb-8">
+          Lingua brand tokens — colors &amp; typography
+        </Text>
+
+        <Text className="text-h3 text-text-primary mb-4">Colors</Text>
+        <View className="flex-row flex-wrap gap-3 mb-8">
+          {colorSwatches.map((s) => (
+            <View key={s.label} className="items-center gap-1">
+              <View className={`w-14 h-14 rounded-xl ${s.className}`} />
+              <Text className="text-caption text-text-secondary">{s.label}</Text>
+            </View>
+          ))}
+        </View>
+
+        <Text className="text-h3 text-text-primary mb-4">Typography</Text>
+        <View className="gap-3">
+          <Text className="text-h1 text-text-primary">H1 — Page Title</Text>
+          <Text className="text-h2 text-text-primary">H2 — Section Title</Text>
+          <Text className="text-h3 text-text-primary">H3 — Card Title</Text>
+          <Text className="text-h4 text-text-primary">H4 — Subheading</Text>
+          <Text className="text-body-lg text-text-primary">Body Large — Important content</Text>
+          <Text className="text-body-md text-text-secondary">Body Medium — Body text</Text>
+          <Text className="text-body-sm text-text-secondary">Body Small — Supporting text</Text>
+          <Text className="text-caption text-text-secondary">Caption — Labels, meta text</Text>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
-
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
-
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
-  },
-});
