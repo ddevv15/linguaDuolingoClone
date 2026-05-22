@@ -6,7 +6,7 @@ export const theme = {
     linguaBlue: "#4D88FF",
     linguaGreen: "#21C16B",
     // Semantic
-    success: "#21C16B",
+    success: "#21C16B", // alias of linguaGreen
     warning: "#FFCB00",
     streak: "#FF8A00",
     error: "#FF4D4F",
@@ -32,3 +32,4 @@ export const theme = {
 
 export type ThemeColors = typeof theme.colors;
 export type TypographyScale = keyof typeof theme.typography;
+export type TypographyValue = typeof theme.typography[TypographyScale];
