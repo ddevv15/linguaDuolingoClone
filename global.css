@@ -1,0 +1,85 @@
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css";
+
+@import "nativewind/theme";
+
+@theme {
+  /* Primary */
+  --color-lingua-purple: #6C4EF5;
+  --color-lingua-deep-purple: #5B3BF6;
+  --color-lingua-blue: #4D88FF;
+  --color-lingua-green: #21C16B;
+
+  /* Semantic */
+  --color-success: #21C16B;
+  --color-warning: #FFCB00;
+  --color-streak: #FF8A00;
+  --color-error: #FF4D4F;
+  --color-info: #4D88FF;
+
+  /* Neutrals */
+  --color-text-primary: #001132;
+  --color-text-secondary: #6B7280;
+  --color-border: #E5E7EB;
+  --color-surface: #F6F7FB;
+  --color-background: #FFFFFF;
+
+  /* Font family — default sans maps to Poppins Regular */
+  --font-family-sans: "Poppins-Regular", system-ui, sans-serif;
+}
+
+/* ── Typography scale utilities ─────────────────────────────
+   Each utility bundles font-size + font-family (weight variant) + line-height.
+   In React Native, font weight is driven by loading distinct font files,
+   so each scale references the appropriate Poppins weight directly.
+   ──────────────────────────────────────────────────────────── */
+@layer utilities {
+  .text-h1 {
+    font-size: 32px;
+    line-height: 38px;
+    font-family: "Poppins-Bold";
+  }
+
+  .text-h2 {
+    font-size: 24px;
+    line-height: 31px;
+    font-family: "Poppins-SemiBold";
+  }
+
+  .text-h3 {
+    font-size: 20px;
+    line-height: 26px;
+    font-family: "Poppins-SemiBold";
+  }
+
+  .text-h4 {
+    font-size: 16px;
+    line-height: 22px;
+    font-family: "Poppins-Medium";
+  }
+
+  .text-body-lg {
+    font-size: 16px;
+    line-height: 26px;
+    font-family: "Poppins-Regular";
+  }
+
+  .text-body-md {
+    font-size: 14px;
+    line-height: 22px;
+    font-family: "Poppins-Regular";
+  }
+
+  .text-body-sm {
+    font-size: 13px;
+    line-height: 21px;
+    font-family: "Poppins-Regular";
+  }
+
+  .text-caption {
+    font-size: 11px;
+    line-height: 15px;
+    font-family: "Poppins-Regular";
+  }
+}
