@@ -1,5 +1,6 @@
-import { ScrollView, View, Text } from "react-native";
+import { ScrollView, View, Text, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Link } from "expo-router";
 
 const colorSwatches = [
   { label: "Lingua Purple",      swatchClass: "w-14 h-14 rounded-xl bg-lingua-purple" },
@@ -16,6 +17,13 @@ export default function Index() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingVertical: 24 }}>
+        <Link href="/onboarding" asChild>
+          <TouchableOpacity className="bg-lingua-purple rounded-2xl py-4 px-6 mb-6 flex-row items-center justify-between">
+            <Text className="text-white text-body-md">Open Onboarding</Text>
+            <Text className="text-white text-body-lg">›</Text>
+          </TouchableOpacity>
+        </Link>
+
         <Text className="text-h1 text-text-primary mb-1">Design System</Text>
         <Text className="text-body-md text-text-secondary mb-8">
           Lingua brand tokens — colors & typography
