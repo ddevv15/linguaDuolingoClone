@@ -40,7 +40,7 @@ export default function OnboardingScreen() {
       {/* Mascot + speech bubbles */}
       <View className="flex-1 items-center justify-center">
         <View className="w-[280px] h-[310px]">
-          <Image source={images.mascotWelcome} className="w-full h-full" contentFit="contain" />
+          <Image source={images.mascotWelcome} style={{ width: 280, height: 310 }} contentFit="contain" />
 
           {/* Hello! — lower left */}
           <View className="absolute" style={{ left: -18, bottom: 115 }}>
@@ -62,7 +62,7 @@ export default function OnboardingScreen() {
       {/* Get Started button */}
       <View className="px-6 pb-6">
         <TouchableOpacity
-          onPress={() => router.replace("/")}
+          onPress={() => router.push("/(auth)/sign-up")}
           activeOpacity={0.85}
           className="bg-lingua-purple rounded-2xl overflow-hidden"
         >

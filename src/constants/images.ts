@@ -1,6 +1,3 @@
-// declare png modules locally to satisfy TS when project doesn't have global declarations
-declare module '*.png';
-
 import earth from "@/assets/images/earth.png";
 import mascotAuth from "@/assets/images/mascot-auth.png";
 import mascotWelcome from "@/assets/images/mascot-welcome.png";
