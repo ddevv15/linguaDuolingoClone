@@ -57,7 +57,7 @@ function InitialLayout() {
     return null;
   }
 
-  return <Stack />;
+  return <Stack screenOptions={{ headerShown: false }} />;
 }
 
 // ── Root layout ───────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 import { ScrollView, View, Text, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Link } from "expo-router";
+import type { Href } from "expo-router";
 
 const colorSwatches = [
   { label: "Lingua Purple",      swatchClass: "w-14 h-14 rounded-xl bg-lingua-purple" },
@@ -18,8 +19,15 @@ export default function Index() {
     <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingVertical: 24 }}>
         <Link href="/onboarding" asChild>
-          <TouchableOpacity className="bg-lingua-purple rounded-2xl py-4 px-6 mb-6 flex-row items-center justify-between">
+          <TouchableOpacity className="bg-lingua-purple rounded-2xl py-4 px-6 mb-3 flex-row items-center justify-between">
             <Text className="text-white text-body-md">Open Onboarding</Text>
+            <Text className="text-white text-body-lg">›</Text>
+          </TouchableOpacity>
+        </Link>
+
+        <Link href={"/(tabs)/language-selection" as Href} asChild>
+          <TouchableOpacity className="bg-lingua-blue rounded-2xl py-4 px-6 mb-6 flex-row items-center justify-between">
+            <Text className="text-white text-body-md">Choose a Language</Text>
             <Text className="text-white text-body-lg">›</Text>
           </TouchableOpacity>
         </Link>
