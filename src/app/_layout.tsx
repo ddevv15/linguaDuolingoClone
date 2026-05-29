@@ -7,16 +7,19 @@ import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 
+import { useLanguageStore } from "@/store/languageStore";
+
 SplashScreen.preventAutoHideAsync();
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
 
-// ── Auth routing guard ────────────────────────────────────────────
+// ── Auth + language routing guard ─────────────────────────────────
 // Lives inside ClerkProvider so it can call useAuth().
-// Redirects unauthenticated users to /onboarding and authenticated
-// users away from auth/onboarding screens to /.
+// Authenticated users without a selected language are sent to
+// /language-selection before they can access the tab navigator.
 function InitialLayout() {
   const { isLoaded, isSignedIn } = useAuth();
+  const { selectedLanguage, hasHydrated } = useLanguageStore();
   const segments = useSegments();
   const router = useRouter();
 
@@ -35,29 +38,40 @@ function InitialLayout() {
   }, [fontsLoaded, fontError]);
 
   useEffect(() => {
-    if (!isLoaded || (!fontsLoaded && !fontError)) return;
+    // Wait for Clerk, fonts, AND the Zustand store to finish loading from AsyncStorage
+    if (!isLoaded || !hasHydrated || (!fontsLoaded && !fontError)) return;
 
     const inAuthGroup = segments[0] === "(auth)";
     const inTabsGroup = segments[0] === "(tabs)";
     const onOnboarding = segments[0] === "onboarding";
+    const onLanguageSelection = segments[0] === "language-selection";
 
-    if (isSignedIn && !inTabsGroup) {
-      // Signed-in users always belong in tabs — handles initial load,
-      // post-auth redirect, and any stray route.
-      router.replace("/(tabs)");
-    } else if (!isSignedIn && !inAuthGroup && !onOnboarding && !inTabsGroup) {
-      // Unauthenticated users go to onboarding unless they're already in
-      // the auth flow. inTabsGroup guard prevents a redirect race while
-      // the session is still activating after OAuth / OTP finalize.
+    if (isSignedIn) {
+      if (!selectedLanguage && !onLanguageSelection) {
+        // Signed-in but no language chosen yet — must pick one first
+        router.replace("/language-selection");
+      } else if (selectedLanguage && !inTabsGroup) {
+        // Language is set — send to home tabs
+        router.replace("/(tabs)");
+      }
+    } else if (!inAuthGroup && !onOnboarding && !inTabsGroup) {
       router.replace("/onboarding");
     }
-  }, [isLoaded, isSignedIn, segments, fontsLoaded, fontError]);
+  }, [isLoaded, isSignedIn, segments, fontsLoaded, fontError, selectedLanguage, hasHydrated]);
 
   if (!fontsLoaded && !fontError) {
     return null;
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+      <Stack.Screen name="language-selection" options={{ headerShown: false }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+    </Stack>
+  );
 }
 
 // ── Root layout ───────────────────────────────────────────────────

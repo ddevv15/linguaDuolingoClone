@@ -9,14 +9,14 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
-import { SymbolView } from "expo-symbols";
 import { router } from "expo-router";
 
 import { languages } from "@/data/languages";
-import { images } from "@/constants/images";
+import { useLanguageStore } from "@/store/languageStore";
 import type { Language } from "@/types/learning";
 
 export default function LanguageSelectionScreen() {
+  const { setLanguage } = useLanguageStore();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Language | null>(null);
 
@@ -30,32 +30,32 @@ export default function LanguageSelectionScreen() {
 
   function handleContinue() {
     if (!selected) return;
-    router.push("/(tabs)");
+    setLanguage(selected);
+    router.replace("/(tabs)");
   }
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       {/* Header */}
-      <View className="flex-row items-center px-4 pt-2 pb-3">
-        <TouchableOpacity
-          onPress={() => router.back()}
-          activeOpacity={0.7}
-          style={styles.backButton}
-        >
-          <Text style={styles.backChevron}>‹</Text>
-        </TouchableOpacity>
-        <Text className="flex-1 text-center text-text-primary" style={styles.headerTitle}>
-          Choose a language
-        </Text>
+      <View style={styles.header}>
+        {router.canGoBack() ? (
+          <TouchableOpacity
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+            style={styles.backButton}
+          >
+            <Text style={styles.backChevron}>‹</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.backButton} />
+        )}
+        <Text style={styles.headerTitle}>Choose a language</Text>
         <View style={styles.headerSpacer} />
       </View>
 
       {/* Search bar */}
-      <View
-        className="mx-4 mb-5 flex-row items-center bg-surface rounded-2xl px-4 gap-3"
-        style={styles.searchContainer}
-      >
-        <SymbolView name="magnifyingglass" size={16} tintColor="#9CA3AF" />
+      <View style={styles.searchContainer}>
+        <Text style={styles.searchIcon}>🔍</Text>
         <TextInput
           placeholder="Search languages"
           placeholderTextColor="#9CA3AF"
@@ -71,9 +71,7 @@ export default function LanguageSelectionScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        <Text className="px-4 mb-3 text-text-primary" style={styles.sectionLabel}>
-          Popular
-        </Text>
+        <Text style={styles.sectionLabel}>Popular</Text>
 
         {filtered.map((lang) => {
           const isSelected = selected?.id === lang.id;
@@ -84,10 +82,7 @@ export default function LanguageSelectionScreen() {
                 setSelected((prev) => (prev?.id === lang.id ? null : lang))
               }
               activeOpacity={0.7}
-              className={`mx-4 mb-2 flex-row items-center px-4 py-3 rounded-2xl border ${
-                isSelected ? "border-lingua-purple" : "border-border bg-white"
-              }`}
-              style={isSelected ? styles.rowSelected : undefined}
+              style={[styles.row, isSelected && styles.rowSelected]}
             >
               <Image
                 source={{ uri: lang.flag }}
@@ -95,13 +90,9 @@ export default function LanguageSelectionScreen() {
                 contentFit="cover"
               />
 
-              <View className="flex-1 ml-3">
-                <Text className="text-text-primary" style={styles.langName}>
-                  {lang.name}
-                </Text>
-                <Text className="text-text-secondary text-body-sm">
-                  {lang.learnerCount}
-                </Text>
+              <View style={styles.rowText}>
+                <Text style={styles.langName}>{lang.name}</Text>
+                <Text style={styles.learnerCount}>{lang.learnerCount}</Text>
               </View>
 
               {isSelected ? (
@@ -109,9 +100,7 @@ export default function LanguageSelectionScreen() {
                   <Text style={styles.checkmark}>✓</Text>
                 </View>
               ) : (
-                <Text className="text-text-secondary" style={styles.chevron}>
-                  ›
-                </Text>
+                <Text style={styles.chevron}>›</Text>
               )}
             </TouchableOpacity>
           );
@@ -121,26 +110,14 @@ export default function LanguageSelectionScreen() {
         <TouchableOpacity
           onPress={handleContinue}
           activeOpacity={0.8}
-          className={`mx-4 mt-3 rounded-2xl py-4 items-center ${
-            selected ? "bg-lingua-purple" : "bg-surface border border-border"
-          }`}
+          style={[styles.continueButton, selected && styles.continueButtonActive]}
         >
-          <Text
-            className={selected ? "text-white" : "text-text-secondary"}
-            style={styles.continueLabel}
-          >
+          <Text style={[styles.continueLabel, selected && styles.continueLabelActive]}>
             {selected ? `Continue with ${selected.name}` : "Select a language"}
           </Text>
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Earth illustration pinned to the bottom — bleeds to screen edge */}
-      <Image
-        source={images.earth}
-        style={styles.earthImage}
-        contentFit="cover"
-        contentPosition="top"
-      />
     </SafeAreaView>
   );
 }
@@ -149,6 +126,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#FFFFFF",
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
   },
   backButton: {
     padding: 8,
@@ -161,15 +145,29 @@ const styles = StyleSheet.create({
     color: "#001132",
   },
   headerTitle: {
+    flex: 1,
+    textAlign: "center",
     fontSize: 16,
     lineHeight: 22,
     fontFamily: "Poppins-SemiBold",
+    color: "#001132",
   },
   headerSpacer: {
     width: 40,
   },
   searchContainer: {
+    marginHorizontal: 16,
+    marginBottom: 20,
     height: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F6F7FB",
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    gap: 10,
+  },
+  searchIcon: {
+    fontSize: 16,
   },
   searchInput: {
     flex: 1,
@@ -185,11 +183,27 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   sectionLabel: {
+    paddingHorizontal: 16,
+    marginBottom: 12,
     fontSize: 14,
     fontFamily: "Poppins-SemiBold",
     lineHeight: 22,
+    color: "#001132",
+  },
+  row: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    backgroundColor: "#FFFFFF",
   },
   rowSelected: {
+    borderColor: "#6C4EF5",
     backgroundColor: "rgba(108, 78, 245, 0.05)",
   },
   flagImage: {
@@ -197,14 +211,26 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
   },
+  rowText: {
+    flex: 1,
+    marginLeft: 12,
+  },
   langName: {
     fontSize: 14,
     lineHeight: 22,
     fontFamily: "Poppins-SemiBold",
+    color: "#001132",
+  },
+  learnerCount: {
+    fontSize: 13,
+    lineHeight: 21,
+    fontFamily: "Poppins-Regular",
+    color: "#6B7280",
   },
   chevron: {
     fontSize: 18,
     lineHeight: 26,
+    color: "#6B7280",
   },
   checkCircle: {
     width: 24,
@@ -219,13 +245,27 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Poppins-SemiBold",
   },
+  continueButton: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 16,
+    paddingVertical: 16,
+    alignItems: "center",
+    backgroundColor: "#F6F7FB",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  continueButtonActive: {
+    backgroundColor: "#6C4EF5",
+    borderColor: "#6C4EF5",
+  },
   continueLabel: {
     fontSize: 14,
     lineHeight: 22,
     fontFamily: "Poppins-SemiBold",
+    color: "#6B7280",
   },
-  earthImage: {
-    width: "100%",
-    height: 200,
+  continueLabelActive: {
+    color: "#FFFFFF",
   },
 });
