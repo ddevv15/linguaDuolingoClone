@@ -10,6 +10,7 @@ import { useUserProgressStore } from "@/store/userProgressStore";
 import { getUnitsByLanguage } from "@/data/units";
 import { getLessonsByUnit } from "@/data/lessons";
 import { images } from "@/constants/images";
+import { posthog } from "@/lib/posthog";
 
 type IoniconName = ComponentProps<typeof Ionicons>["name"];
 
@@ -162,6 +163,12 @@ export default function HomeScreen() {
                 activeOpacity={0.85}
                 className="bg-white rounded-2xl self-start mt-4 px-5"
                 style={{ paddingVertical: 8 }}
+                onPress={() =>
+                  posthog.capture("continue_learning_tapped", {
+                    language: selectedLanguage?.name,
+                    unit_id: currentUnit?.id,
+                  })
+                }
               >
                 <Text
                   className="text-lingua-purple text-body-sm"

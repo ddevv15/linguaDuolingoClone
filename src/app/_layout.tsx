@@ -2,16 +2,37 @@ import "../../global.css";
 
 import { ClerkProvider, useAuth } from "@clerk/expo";
 import { tokenCache } from "@/lib/clerk";
-import { Stack, useRouter, useSegments } from "expo-router";
+import { Stack, useRouter, useSegments, usePathname, useGlobalSearchParams } from "expo-router";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { PostHogProvider } from "posthog-react-native";
 
 import { useLanguageStore } from "@/store/languageStore";
+import { posthog } from "@/lib/posthog";
 
 SplashScreen.preventAutoHideAsync();
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
+
+// ── Screen tracking ───────────────────────────────────────────────
+function ScreenTracker() {
+  const pathname = usePathname();
+  const params = useGlobalSearchParams();
+  const previousPathname = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (previousPathname.current !== pathname) {
+      posthog.screen(pathname, {
+        previous_screen: previousPathname.current ?? null,
+        ...params,
+      });
+      previousPathname.current = pathname;
+    }
+  }, [pathname, params]);
+
+  return null;
+}
 
 // ── Auth + language routing guard ─────────────────────────────────
 // Lives inside ClerkProvider so it can call useAuth().
@@ -64,21 +85,34 @@ function InitialLayout() {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="index" options={{ headerShown: false }} />
-      <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-      <Stack.Screen name="language-selection" options={{ headerShown: false }} />
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-    </Stack>
+    <>
+      <ScreenTracker />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+        <Stack.Screen name="language-selection" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+      </Stack>
+    </>
   );
 }
 
 // ── Root layout ───────────────────────────────────────────────────
 export default function RootLayout() {
   return (
-    <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-      <InitialLayout />
-    </ClerkProvider>
+    <PostHogProvider
+      client={posthog}
+      autocapture={{
+        captureScreens: false,
+        captureTouches: true,
+        propsToCapture: ["testID"],
+        maxElementsCaptured: 20,
+      }}
+    >
+      <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
+        <InitialLayout />
+      </ClerkProvider>
+    </PostHogProvider>
   );
 }

@@ -14,6 +14,7 @@ import { router } from "expo-router";
 import { languages } from "@/data/languages";
 import { useLanguageStore } from "@/store/languageStore";
 import type { Language } from "@/types/learning";
+import { posthog } from "@/lib/posthog";
 
 export default function LanguageSelectionScreen() {
   const { setLanguage } = useLanguageStore();
@@ -31,6 +32,11 @@ export default function LanguageSelectionScreen() {
   function handleContinue() {
     if (!selected) return;
     setLanguage(selected);
+    posthog.capture("language_selected", {
+      language_id: selected.id,
+      language_name: selected.name,
+      language_code: selected.code,
+    });
     router.replace("/(tabs)");
   }
 

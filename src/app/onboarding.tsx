@@ -3,6 +3,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { Stack, router } from "expo-router";
 import { images } from "@/constants/images";
+import { posthog } from "@/lib/posthog";
 
 function SpeechBubble({ text, textColor }: { text: string; textColor: string }) {
   return (
@@ -62,7 +63,10 @@ export default function OnboardingScreen() {
       {/* Get Started button */}
       <View className="px-6 pb-6">
         <TouchableOpacity
-          onPress={() => router.push("/(auth)/sign-up")}
+          onPress={() => {
+            posthog.capture("onboarding_get_started_tapped");
+            router.push("/(auth)/sign-up");
+          }}
           activeOpacity={0.85}
           className="bg-lingua-purple rounded-2xl overflow-hidden"
         >
