@@ -66,13 +66,14 @@ function InitialLayout() {
     const inTabsGroup = segments[0] === "(tabs)";
     const onOnboarding = segments[0] === "onboarding";
     const onLanguageSelection = segments[0] === "language-selection";
+    const onLessonScreen = segments[0] === "lesson";
 
     if (isSignedIn) {
       if (!selectedLanguage && !onLanguageSelection) {
         // Signed-in but no language chosen yet — must pick one first
         router.replace("/language-selection");
-      } else if (selectedLanguage && !inTabsGroup) {
-        // Language is set — send to home tabs
+      } else if (selectedLanguage && !inTabsGroup && !onLessonScreen) {
+        // Language is set — send to home tabs (lesson screen is a valid destination)
         router.replace("/(tabs)");
       }
     } else if (!inAuthGroup && !onOnboarding && !inTabsGroup) {
@@ -93,6 +94,7 @@ function InitialLayout() {
         <Stack.Screen name="language-selection" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen name="lesson/[id]" options={{ headerShown: false }} />
       </Stack>
     </>
   );

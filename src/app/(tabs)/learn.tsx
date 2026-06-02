@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from "react-nati
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 
 import { useLanguageStore } from "@/store/languageStore";
 import { useUserProgressStore } from "@/store/userProgressStore";
@@ -165,15 +166,16 @@ export default function LearnScreen() {
                     styles.lessonRow,
                     isInProgress && styles.lessonRowInProgress,
                   ]}
-                  onPress={() =>
+                  onPress={() => {
                     posthog.capture("lesson_tapped", {
                       lesson_id: lesson.id,
                       lesson_title: lesson.title,
                       lesson_order: lesson.order,
                       lesson_status: status,
                       unit_id: currentUnit.id,
-                    })
-                  }
+                    });
+                    router.push(`/lesson/${lesson.id}`);
+                  }}
                 >
                   {/* Lesson number */}
                   <View style={styles.lessonNumberWrapper}>

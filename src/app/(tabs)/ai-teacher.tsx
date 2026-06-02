@@ -1,20 +1,99 @@
-import { useEffect } from "react";
-import { View, Text } from "react-native";
+import { View, Text, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { posthog } from "@/lib/posthog";
+import { router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+
+import { useLanguageStore } from "@/store/languageStore";
+import { useUserProgressStore } from "@/store/userProgressStore";
+import { getUnitsByLanguage } from "@/data/units";
+import { getLessonsByUnit } from "@/data/lessons";
+import AudioLessonView from "@/components/AudioLessonView";
+import type { Language } from "@/types/learning";
+import type { Lesson } from "@/types/learning";
+
+function getCurrentLesson(
+  selectedLanguage: Language | null,
+  completedLessons: string[]
+): Lesson | null {
+  if (!selectedLanguage) return null;
+  const units = getUnitsByLanguage(selectedLanguage.id);
+  const unit = units[0];
+  if (!unit) return null;
+  const lessons = getLessonsByUnit(unit.id);
+  if (!lessons.length) return null;
+  return lessons.find((l) => !completedLessons.includes(l.id)) ?? lessons[0];
+}
 
 export default function AITeacherScreen() {
-  useEffect(() => {
-    posthog.capture("ai_teacher_opened");
-  }, []);
+  const { selectedLanguage } = useLanguageStore();
+  const { completedLessons } = useUserProgressStore();
+
+  const lesson = getCurrentLesson(selectedLanguage, completedLessons);
+
+  if (!lesson) {
+    return (
+      <SafeAreaView
+        style={{ flex: 1, backgroundColor: "#FFFFFF" }}
+        edges={["top"]}
+      >
+        <View className="flex-1 items-center justify-center px-8">
+          <View
+            style={{
+              width: 72,
+              height: 72,
+              borderRadius: 36,
+              backgroundColor: "#F0ECFE",
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: 16,
+            }}
+          >
+            <Ionicons name="mic-outline" size={32} color="#6C4EF5" />
+          </View>
+          <Text
+            className="text-h3 text-text-primary text-center"
+            style={{ fontFamily: "Poppins-SemiBold" }}
+          >
+            No lessons available
+          </Text>
+          <Text className="text-body-md text-text-secondary text-center mt-2">
+            Select a language in your profile to start learning.
+          </Text>
+          <TouchableOpacity
+            onPress={() => router.replace("/(tabs)/learn")}
+            activeOpacity={0.7}
+            style={{
+              marginTop: 20,
+              backgroundColor: "#6C4EF5",
+              paddingHorizontal: 24,
+              paddingVertical: 12,
+              borderRadius: 12,
+            }}
+          >
+            <Text
+              style={{
+                color: "#FFFFFF",
+                fontFamily: "Poppins-SemiBold",
+                fontSize: 14,
+              }}
+            >
+              Go to Lessons
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
-      <View className="flex-1 items-center justify-center">
-        <Text className="text-h3 text-text-primary" style={{ fontFamily: "Poppins-SemiBold" }}>
-          AI Teacher
-        </Text>
-      </View>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: "#FFFFFF" }}
+      edges={["top"]}
+    >
+      <AudioLessonView
+        lesson={lesson}
+        onEnd={() => router.replace("/(tabs)/learn")}
+      />
     </SafeAreaView>
   );
 }
