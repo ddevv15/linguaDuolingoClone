@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { useUser } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 
 import { useLanguageStore } from "@/store/languageStore";
 import { useUserProgressStore } from "@/store/userProgressStore";
@@ -163,12 +164,14 @@ export default function HomeScreen() {
                 activeOpacity={0.85}
                 className="bg-white rounded-2xl self-start mt-4 px-5"
                 style={{ paddingVertical: 8 }}
-                onPress={() =>
+                onPress={() => {
                   posthog.capture("continue_learning_tapped", {
                     language: selectedLanguage?.name,
                     unit_id: currentUnit?.id,
-                  })
-                }
+                    lesson_id: currentLesson?.id,
+                  });
+                  if (currentLesson) router.push(`/lesson/${currentLesson.id}`);
+                }}
               >
                 <Text
                   className="text-lingua-purple text-body-sm"
