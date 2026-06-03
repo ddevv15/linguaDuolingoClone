@@ -15,6 +15,7 @@ import { useSignIn, useSSO } from "@clerk/expo";
 import { images } from "@/constants/images";
 import AuthInputField from "@/components/AuthInputField";
 import VerificationModal from "@/components/VerificationModal";
+import { posthog } from "@/lib/posthog";
 
 // Required so the OAuth browser session closes cleanly on return
 WebBrowser.maybeCompleteAuthSession();
@@ -86,12 +87,15 @@ export default function SignInScreen() {
       const { error: createError } = await signIn.create({ identifier: email });
       if (createError) {
         setError(createError.longMessage ?? createError.message);
+        posthog.capture("sign_in_failed", { method: "email_otp", error: createError.message });
         return;
       }
       await signIn.emailCode.sendCode({ emailAddress: email });
       setModalVisible(true);
     } catch (e: any) {
-      setError(e?.errors?.[0]?.longMessage ?? e?.message ?? "Sign in failed.");
+      const msg = e?.errors?.[0]?.longMessage ?? e?.message ?? "Sign in failed.";
+      setError(msg);
+      posthog.capture("sign_in_failed", { method: "email_otp", error: msg });
     }
   }
 
@@ -100,10 +104,16 @@ export default function SignInScreen() {
     if (error) {
       const e: any = new Error(error.longMessage ?? error.message);
       e.errors = [error];
+      posthog.capture("sign_in_failed", { method: "email_otp", error: error.message });
       throw e;
     }
     await signIn.finalize({
       navigate: () => {
+        posthog.identify(email, {
+          $set: { email },
+          $set_once: { first_sign_in_date: new Date().toISOString() },
+        });
+        posthog.capture("sign_in_completed", { method: "email_otp" });
         setModalVisible(false);
         router.replace("/(tabs)");
       },
@@ -123,10 +133,13 @@ export default function SignInScreen() {
       });
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
+        posthog.capture("sign_in_completed", { method: "google" });
         router.replace("/");
       }
     } catch (e: any) {
-      setError(e?.message || "Google sign-in failed.");
+      const msg = e?.message || "Google sign-in failed.";
+      setError(msg);
+      posthog.capture("sign_in_failed", { method: "google", error: msg });
     }
   }
 
@@ -139,10 +152,13 @@ export default function SignInScreen() {
       });
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
+        posthog.capture("sign_in_completed", { method: "apple" });
         router.replace("/");
       }
     } catch (e: any) {
-      setError(e?.message || "Apple sign-in failed.");
+      const msg = e?.message || "Apple sign-in failed.";
+      setError(msg);
+      posthog.capture("sign_in_failed", { method: "apple", error: msg });
     }
   }
 

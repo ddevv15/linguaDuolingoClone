@@ -2,21 +2,45 @@ import "../../global.css";
 
 import { ClerkProvider, useAuth } from "@clerk/expo";
 import { tokenCache } from "@/lib/clerk";
-import { Stack, useRouter, useSegments } from "expo-router";
+import { Stack, useRouter, useSegments, usePathname, useGlobalSearchParams } from "expo-router";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { PostHogProvider } from "posthog-react-native";
+
+import { useLanguageStore } from "@/store/languageStore";
+import { posthog } from "@/lib/posthog";
 
 SplashScreen.preventAutoHideAsync();
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
 
-// ── Auth routing guard ────────────────────────────────────────────
+// ── Screen tracking ───────────────────────────────────────────────
+function ScreenTracker() {
+  const pathname = usePathname();
+  const params = useGlobalSearchParams();
+  const previousPathname = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (previousPathname.current !== pathname) {
+      posthog.screen(pathname, {
+        previous_screen: previousPathname.current ?? null,
+        ...params,
+      });
+      previousPathname.current = pathname;
+    }
+  }, [pathname, params]);
+
+  return null;
+}
+
+// ── Auth + language routing guard ─────────────────────────────────
 // Lives inside ClerkProvider so it can call useAuth().
-// Redirects unauthenticated users to /onboarding and authenticated
-// users away from auth/onboarding screens to /.
+// Authenticated users without a selected language are sent to
+// /language-selection before they can access the tab navigator.
 function InitialLayout() {
   const { isLoaded, isSignedIn } = useAuth();
+  const { selectedLanguage, hasHydrated } = useLanguageStore();
   const segments = useSegments();
   const router = useRouter();
 
@@ -35,36 +59,62 @@ function InitialLayout() {
   }, [fontsLoaded, fontError]);
 
   useEffect(() => {
-    if (!isLoaded || (!fontsLoaded && !fontError)) return;
+    // Wait for Clerk, fonts, AND the Zustand store to finish loading from AsyncStorage
+    if (!isLoaded || !hasHydrated || (!fontsLoaded && !fontError)) return;
 
     const inAuthGroup = segments[0] === "(auth)";
     const inTabsGroup = segments[0] === "(tabs)";
     const onOnboarding = segments[0] === "onboarding";
+    const onLanguageSelection = segments[0] === "language-selection";
+    const onLessonScreen = segments[0] === "lesson";
 
-    if (isSignedIn && !inTabsGroup) {
-      // Signed-in users always belong in tabs — handles initial load,
-      // post-auth redirect, and any stray route.
-      router.replace("/(tabs)");
-    } else if (!isSignedIn && !inAuthGroup && !onOnboarding && !inTabsGroup) {
-      // Unauthenticated users go to onboarding unless they're already in
-      // the auth flow. inTabsGroup guard prevents a redirect race while
-      // the session is still activating after OAuth / OTP finalize.
+    if (isSignedIn) {
+      if (!selectedLanguage && !onLanguageSelection) {
+        // Signed-in but no language chosen yet — must pick one first
+        router.replace("/language-selection");
+      } else if (selectedLanguage && !inTabsGroup && !onLessonScreen) {
+        // Language is set — send to home tabs (lesson screen is a valid destination)
+        router.replace("/(tabs)");
+      }
+    } else if (!inAuthGroup && !onOnboarding && !inTabsGroup) {
       router.replace("/onboarding");
     }
-  }, [isLoaded, isSignedIn, segments, fontsLoaded, fontError]);
+  }, [isLoaded, isSignedIn, segments, fontsLoaded, fontError, selectedLanguage, hasHydrated]);
 
   if (!fontsLoaded && !fontError) {
     return null;
   }
 
-  return <Stack />;
+  return (
+    <>
+      <ScreenTracker />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+        <Stack.Screen name="language-selection" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen name="lesson/[id]" options={{ headerShown: false }} />
+      </Stack>
+    </>
+  );
 }
 
 // ── Root layout ───────────────────────────────────────────────────
 export default function RootLayout() {
   return (
-    <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-      <InitialLayout />
-    </ClerkProvider>
+    <PostHogProvider
+      client={posthog}
+      autocapture={{
+        captureScreens: false,
+        captureTouches: true,
+        propsToCapture: ["testID"],
+        maxElementsCaptured: 20,
+      }}
+    >
+      <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
+        <InitialLayout />
+      </ClerkProvider>
+    </PostHogProvider>
   );
 }

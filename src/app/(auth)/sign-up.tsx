@@ -15,6 +15,7 @@ import { useSignUp, useSSO } from "@clerk/expo";
 import { images } from "@/constants/images";
 import AuthInputField from "@/components/AuthInputField";
 import VerificationModal from "@/components/VerificationModal";
+import { posthog } from "@/lib/posthog";
 
 // Required so the OAuth browser session closes cleanly on return
 WebBrowser.maybeCompleteAuthSession();
@@ -90,12 +91,15 @@ export default function SignUpScreen() {
       });
       if (signUpError) {
         setError(signUpError.longMessage ?? signUpError.message);
+        posthog.capture("sign_up_failed", { method: "email_password", error: signUpError.message });
         return;
       }
       await signUp.verifications.sendEmailCode();
       setModalVisible(true);
     } catch (e: any) {
-      setError(e?.errors?.[0]?.longMessage ?? e?.message ?? "Sign up failed.");
+      const msg = e?.errors?.[0]?.longMessage ?? e?.message ?? "Sign up failed.";
+      setError(msg);
+      posthog.capture("sign_up_failed", { method: "email_password", error: msg });
     }
   }
 
@@ -104,10 +108,16 @@ export default function SignUpScreen() {
     if (error) {
       const e: any = new Error(error.longMessage ?? error.message);
       e.errors = [error];
+      posthog.capture("sign_up_failed", { method: "email_password", error: error.message });
       throw e;
     }
     await signUp.finalize({
       navigate: () => {
+        posthog.identify(email, {
+          $set: { email },
+          $set_once: { sign_up_date: new Date().toISOString() },
+        });
+        posthog.capture("sign_up_completed", { method: "email_password" });
         setModalVisible(false);
         router.replace("/(tabs)");
       },
@@ -127,10 +137,13 @@ export default function SignUpScreen() {
       });
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
+        posthog.capture("sign_up_completed", { method: "google" });
         router.replace("/");
       }
     } catch (e: any) {
-      setError(e?.message || "Google sign-up failed.");
+      const msg = e?.message || "Google sign-up failed.";
+      setError(msg);
+      posthog.capture("sign_up_failed", { method: "google", error: msg });
     }
   }
 
@@ -143,10 +156,13 @@ export default function SignUpScreen() {
       });
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
+        posthog.capture("sign_up_completed", { method: "apple" });
         router.replace("/");
       }
     } catch (e: any) {
-      setError(e?.message || "Apple sign-up failed.");
+      const msg = e?.message || "Apple sign-up failed.";
+      setError(msg);
+      posthog.capture("sign_up_failed", { method: "apple", error: msg });
     }
   }
 
