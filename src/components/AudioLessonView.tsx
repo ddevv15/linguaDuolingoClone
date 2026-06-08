@@ -10,6 +10,7 @@ import {
 } from "@stream-io/video-react-native-sdk";
 
 import { useUserProgressStore } from "@/store/userProgressStore";
+import { useAgentSession, type AgentStatus } from "@/hooks/useAgentSession";
 import { images } from "@/constants/images";
 import type { Lesson } from "@/types/learning";
 
@@ -22,6 +23,16 @@ const WELL_DONE: Record<string, string> = {
   ko: "잘 했어요!",
   de: "Sehr gut!",
   zh: "很好！",
+};
+
+const AGENT_STATUS_META: Record<
+  AgentStatus,
+  { label: string; color: string; icon: keyof typeof Ionicons.glyphMap }
+> = {
+  idle: { label: "Preparing teacher…", color: "#9CA3AF", icon: "hourglass-outline" },
+  connecting: { label: "Connecting teacher…", color: "#F59E0B", icon: "sync" },
+  connected: { label: "Teacher connected", color: "#21C16B", icon: "checkmark-circle" },
+  failed: { label: "Teacher unavailable", color: "#EF4444", icon: "alert-circle" },
 };
 
 type SpeechContent = { main: string; sub: string };
@@ -91,6 +102,10 @@ export default function AudioLessonView({
   const isMicOn = micStatus === "enabled";
   const isReconnecting = callingState === CallingState.RECONNECTING;
 
+  // ── AI teacher (Vision Agent) session ─────────────────────────────────────
+  const { status: agentStatus, stop: stopAgentSession } = useAgentSession();
+  const agentStatusMeta = AGENT_STATUS_META[agentStatus];
+
   // ── Local UI state (not stream-specific) ──────────────────────────────────
   const [isCameraOn, setIsCameraOn] = useState(false);
   const [showSubtitles, setShowSubtitles] = useState(true);
@@ -116,6 +131,8 @@ export default function AudioLessonView({
   async function handleEndCall() {
     if (hasCompleted.current) return;
     hasCompleted.current = true;
+
+    await stopAgentSession();
 
     if (call && call.state.callingState !== CallingState.LEFT) {
       await call.leave().catch(console.error);
@@ -234,6 +251,12 @@ export default function AudioLessonView({
             <Text style={styles.mutedText}>Muted</Text>
           </View>
         )}
+
+        {/* AI teacher (Vision Agent) connection status */}
+        <View style={[styles.agentStatusBadge, { backgroundColor: agentStatusMeta.color }]}>
+          <Ionicons name={agentStatusMeta.icon} size={13} color="#FFFFFF" />
+          <Text style={styles.agentStatusText}>{agentStatusMeta.label}</Text>
+        </View>
 
         {showSubtitles && (
           <View style={styles.speechBubble}>
@@ -482,6 +505,23 @@ const styles = StyleSheet.create({
     zIndex: 20,
   },
   mutedText: {
+    fontSize: 12,
+    fontFamily: "Poppins-SemiBold",
+    color: "#FFFFFF",
+  },
+  agentStatusBadge: {
+    position: "absolute",
+    bottom: 84,
+    right: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    zIndex: 20,
+  },
+  agentStatusText: {
     fontSize: 12,
     fontFamily: "Poppins-SemiBold",
     color: "#FFFFFF",

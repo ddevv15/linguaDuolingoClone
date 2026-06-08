@@ -1,6 +1,8 @@
 // Expo API route — runs server-side only.
 // Stream API secret and Clerk secret never leave this file.
 
+import { requireClerkUserId } from "@/lib/serverAuth";
+
 const STREAM_API_KEY = process.env.STREAM_API_KEY!;
 const STREAM_API_SECRET = process.env.STREAM_API_SECRET!;
 
@@ -47,37 +49,12 @@ async function generateStreamToken(userId: string): Promise<string> {
   return `${sigInput}.${base64url(sig)}`;
 }
 
-// ── Clerk JWT decode (extract sub without re-verifying signature) ────────────
-// The token was issued by Clerk and is short-lived (60 s default session token).
-// We check expiry — the primary time-based security guard available without
-// fetching Clerk's JWKS in this edge-compatible route.
-function extractClerkUserId(sessionToken: string): string | null {
-  const parts = sessionToken.split(".");
-  if (parts.length !== 3) return null;
-  try {
-    const padded = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-    const json = atob(padded.padEnd(padded.length + ((4 - (padded.length % 4)) % 4), "="));
-    const payload = JSON.parse(json) as { sub?: string; exp?: number };
-    if (!payload.sub) return null;
-    if (payload.exp && payload.exp < Date.now() / 1000) return null; // expired
-    return payload.sub;
-  } catch {
-    return null;
-  }
-}
-
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 export async function GET(request: Request) {
-  const authorization = request.headers.get("Authorization");
-  if (!authorization?.startsWith("Bearer ")) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const clerkToken = authorization.slice(7);
-  const userId = extractClerkUserId(clerkToken);
+  const userId = requireClerkUserId(request);
   if (!userId) {
-    return Response.json({ error: "Invalid or expired session" }, { status: 401 });
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const token = await generateStreamToken(userId);

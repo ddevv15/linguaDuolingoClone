@@ -12,6 +12,10 @@ import {
 } from "@stream-io/video-react-native-sdk";
 
 import { getLessonById } from "@/data/lessons";
+import { getUnitById } from "@/data/units";
+import { getLanguageById } from "@/data/languages";
+import { AGENT_USER_ID } from "@/constants/agent";
+import type { Activity, AgentCallContext } from "@/types/learning";
 import AudioLessonView from "@/components/AudioLessonView";
 
 type CallStatus = "connecting" | "joined" | "error";
@@ -31,7 +35,7 @@ export default function LessonScreen() {
   const cleanedUp = useRef(false);
 
   useEffect(() => {
-    if (!userId || !id) return;
+    if (!userId || !id || !lesson) return;
     cleanedUp.current = false;
 
     let client: StreamVideoClient | undefined;
@@ -75,13 +79,48 @@ export default function LessonScreen() {
         if (cleanedUp.current) return;
         setVideoClient(client);
 
-        // ── 3. Create + join the lesson call (audio-only) ─────────────────
-        // Call ID is deterministic per user+lesson so reconnects rejoin the same session
+        // ── 3. Create + join the lesson call as an audio room ─────────────
+        // Call ID is deterministic per user+lesson so reconnects rejoin the same session.
+        // "audio_room" gives us member roles + backstage/goLive, which the AI
+        // teacher needs so it can join as an admin and publish audio alongside us.
         const callId = `lesson-${id}-${userId}`;
-        activeCall = client.call("default", callId, { reuseInstance: true });
-        await activeCall.join({ create: true });
+        activeCall = client.call("audio_room", callId, { reuseInstance: true });
+
+        const language = getLanguageById(getUnitById(lesson.unitId)?.languageId ?? "");
+        const vocabulary = lesson.activities
+          .filter((activity): activity is Extract<Activity, { type: "vocabulary" }> => activity.type === "vocabulary")
+          .flatMap((activity) => activity.items);
+        const phrases = lesson.activities
+          .filter((activity): activity is Extract<Activity, { type: "phrases" }> => activity.type === "phrases")
+          .flatMap((activity) => activity.items);
+
+        // Packed into the call's custom data so the Vision Agent can read it
+        // on join (via `call.custom`) and teach this exact lesson.
+        const agentContext: AgentCallContext = {
+          lessonTitle: lesson.title,
+          lessonDescription: lesson.description,
+          languageName: language?.name ?? "",
+          languageCode: language?.code ?? "",
+          goal: lesson.goal,
+          vocabulary,
+          phrases,
+          teacherPrompt: lesson.aiTeacher.prompt,
+        };
+
+        await activeCall.join({
+          create: true,
+          data: {
+            members: [
+              { user_id: userId, role: "host" },
+              { user_id: AGENT_USER_ID, role: "admin" },
+            ],
+            custom: agentContext,
+          },
+        });
         await activeCall.camera.disable();
         await activeCall.microphone.enable();
+        // audio_room calls start in backstage — go live so the agent can join and publish audio.
+        await activeCall.goLive();
 
         if (cleanedUp.current) return;
         setCall(activeCall);
@@ -94,11 +133,16 @@ export default function LessonScreen() {
 
     return () => {
       cleanedUp.current = true;
-      if (activeCall && activeCall.state.callingState !== CallingState.LEFT) {
-        activeCall.leave().catch(console.error);
+      const callToCleanUp = activeCall;
+      if (callToCleanUp && callToCleanUp.state.callingState !== CallingState.LEFT) {
+        callToCleanUp
+          .stopLive()
+          .catch(() => {})
+          .finally(() => callToCleanUp.leave().catch(console.error));
       }
       client?.disconnectUser().catch(console.error);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, id]);
 
   // ── Lesson not found ───────────────────────────────────────────────────────
