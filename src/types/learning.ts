@@ -107,3 +107,20 @@ export type Language = {
   /** Pre-formatted learner count string, e.g. "28.4M learners" */
   learnerCount?: string;
 };
+
+// ─── Vision Agent call context ─────────────────────────────────────────────
+
+/**
+ * Lesson context packed into the Stream call's custom data so the Vision
+ * Agent can read it via `call.custom` on join and teach this specific lesson.
+ */
+export type AgentCallContext = {
+  lessonTitle: string;
+  lessonDescription: string;
+  languageName: string;
+  languageCode: string;
+  goal: LessonGoal;
+  vocabulary: VocabularyItem[];
+  phrases: PhraseItem[];
+  teacherPrompt: string;
+};

@@ -1,9 +1,16 @@
-import { useState } from "react";
+import { useEffect, useRef } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
+import { useState } from "react";
+import {
+  useCall,
+  useCallStateHooks,
+  CallingState,
+} from "@stream-io/video-react-native-sdk";
 
 import { useUserProgressStore } from "@/store/userProgressStore";
+import { useAgentSession, type AgentStatus } from "@/hooks/useAgentSession";
 import { images } from "@/constants/images";
 import type { Lesson } from "@/types/learning";
 
@@ -16,6 +23,16 @@ const WELL_DONE: Record<string, string> = {
   ko: "잘 했어요!",
   de: "Sehr gut!",
   zh: "很好！",
+};
+
+const AGENT_STATUS_META: Record<
+  AgentStatus,
+  { label: string; color: string; icon: keyof typeof Ionicons.glyphMap }
+> = {
+  idle: { label: "Preparing teacher…", color: "#9CA3AF", icon: "hourglass-outline" },
+  connecting: { label: "Connecting teacher…", color: "#F59E0B", icon: "sync" },
+  connected: { label: "Teacher connected", color: "#21C16B", icon: "checkmark-circle" },
+  failed: { label: "Teacher unavailable", color: "#EF4444", icon: "alert-circle" },
 };
 
 type SpeechContent = { main: string; sub: string };
@@ -62,15 +79,39 @@ type Props = {
   onEnd: () => void;
   /** If provided, a back button is rendered and calls this on press */
   onBack?: () => void;
+  /** Clerk user info shown in the student avatar */
+  userName?: string;
+  userImage?: string;
 };
 
-export default function AudioLessonView({ lesson, onEnd, onBack }: Props) {
+export default function AudioLessonView({
+  lesson,
+  onEnd,
+  onBack,
+  userName,
+  userImage,
+}: Props) {
   const { addXP, completeLesson } = useUserProgressStore();
 
-  const [isMicOn, setIsMicOn] = useState(true);
+  // ── Stream call hooks (available because we're inside <StreamCall>) ──────
+  const call = useCall();
+  const { useCallCallingState, useMicrophoneState } = useCallStateHooks();
+  const callingState = useCallCallingState();
+  const { status: micStatus } = useMicrophoneState();
+
+  const isMicOn = micStatus === "enabled";
+  const isReconnecting = callingState === CallingState.RECONNECTING;
+
+  // ── AI teacher (Vision Agent) session ─────────────────────────────────────
+  const { status: agentStatus, stop: stopAgentSession } = useAgentSession();
+  const agentStatusMeta = AGENT_STATUS_META[agentStatus];
+
+  // ── Local UI state (not stream-specific) ──────────────────────────────────
   const [isCameraOn, setIsCameraOn] = useState(false);
   const [showSubtitles, setShowSubtitles] = useState(true);
   const [wordIndex, setWordIndex] = useState(0);
+
+  const hasCompleted = useRef(false);
 
   const totalItems = getItemCount(lesson);
   const isComplete = wordIndex >= totalItems;
@@ -85,15 +126,58 @@ export default function AudioLessonView({ lesson, onEnd, onBack }: Props) {
     grammar: "Good",
   };
 
-  function handleSpeaker() {
-    if (wordIndex < totalItems) setWordIndex((prev) => prev + 1);
-  }
+  // ── End call (local button or externally-ended call) ──────────────────────
 
-  function handleEndCall() {
+  async function handleEndCall() {
+    if (hasCompleted.current) return;
+    hasCompleted.current = true;
+
+    await stopAgentSession();
+
+    if (call && call.state.callingState !== CallingState.LEFT) {
+      await call.leave().catch(console.error);
+    }
+
     completeLesson(lesson.id);
     addXP(lesson.xpReward);
     onEnd();
   }
+
+  // Detect when Stream ends the call externally (network drop, remote end)
+  useEffect(() => {
+    if (callingState === CallingState.LEFT) {
+      void handleEndCall();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [callingState]);
+
+  // ── Mic toggle ────────────────────────────────────────────────────────────
+
+  function handleMicToggle() {
+    call?.microphone.toggle().catch(console.error);
+  }
+
+  // ── Speaker advance ───────────────────────────────────────────────────────
+
+  function handleSpeaker() {
+    if (wordIndex < totalItems) setWordIndex((prev) => prev + 1);
+  }
+
+  // ── User initials for avatar fallback ─────────────────────────────────────
+
+  const initials = userName
+    ? userName
+        .split(" ")
+        .slice(0, 2)
+        .map((w) => w[0])
+        .join("")
+        .toUpperCase()
+    : "Me";
+
+  // ── Calling state label ───────────────────────────────────────────────────
+
+  const statusLabel = isReconnecting ? "Reconnecting…" : "Online";
+  const statusColor = isReconnecting ? "#F59E0B" : "#21C16B";
 
   return (
     <View style={styles.root}>
@@ -114,8 +198,10 @@ export default function AudioLessonView({ lesson, onEnd, onBack }: Props) {
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>AI Teacher</Text>
           <View style={styles.onlineRow}>
-            <View style={styles.onlineDot} />
-            <Text style={styles.onlineText}>Online</Text>
+            <View style={[styles.onlineDot, { backgroundColor: statusColor }]} />
+            <Text style={[styles.onlineText, { color: statusColor }]}>
+              {statusLabel}
+            </Text>
           </View>
         </View>
 
@@ -132,8 +218,17 @@ export default function AudioLessonView({ lesson, onEnd, onBack }: Props) {
 
       {/* ── Teacher Area ─────────────────────────────── */}
       <View style={styles.teacherArea}>
+        {/* Student avatar (top-right) */}
         <View style={styles.studentAvatar}>
-          <Ionicons name="person" size={26} color="#FFFFFF" />
+          {userImage ? (
+            <Image
+              source={{ uri: userImage }}
+              style={styles.avatarImage}
+              contentFit="cover"
+            />
+          ) : (
+            <Text style={styles.avatarInitials}>{initials}</Text>
+          )}
         </View>
 
         <Image
@@ -141,6 +236,27 @@ export default function AudioLessonView({ lesson, onEnd, onBack }: Props) {
           style={styles.mascotImage}
           contentFit="contain"
         />
+
+        {/* Reconnecting overlay */}
+        {isReconnecting && (
+          <View style={styles.reconnectingOverlay}>
+            <Text style={styles.reconnectingText}>Reconnecting…</Text>
+          </View>
+        )}
+
+        {/* Muted indicator */}
+        {!isMicOn && (
+          <View style={styles.mutedBadge}>
+            <Ionicons name="mic-off" size={13} color="#FFFFFF" />
+            <Text style={styles.mutedText}>Muted</Text>
+          </View>
+        )}
+
+        {/* AI teacher (Vision Agent) connection status */}
+        <View style={[styles.agentStatusBadge, { backgroundColor: agentStatusMeta.color }]}>
+          <Ionicons name={agentStatusMeta.icon} size={13} color="#FFFFFF" />
+          <Text style={styles.agentStatusText}>{agentStatusMeta.label}</Text>
+        </View>
 
         {showSubtitles && (
           <View style={styles.speechBubble}>
@@ -182,7 +298,7 @@ export default function AudioLessonView({ lesson, onEnd, onBack }: Props) {
 
         <View style={styles.controlItem}>
           <TouchableOpacity
-            onPress={() => setIsMicOn((v) => !v)}
+            onPress={handleMicToggle}
             style={[styles.controlButton, isMicOn && styles.controlButtonOn]}
             activeOpacity={0.8}
           >
@@ -192,7 +308,7 @@ export default function AudioLessonView({ lesson, onEnd, onBack }: Props) {
               color="#FFFFFF"
             />
           </TouchableOpacity>
-          <Text style={styles.controlLabel}>Mic</Text>
+          <Text style={styles.controlLabel}>{isMicOn ? "Mute" : "Unmute"}</Text>
         </View>
 
         <View style={styles.controlItem}>
@@ -215,7 +331,7 @@ export default function AudioLessonView({ lesson, onEnd, onBack }: Props) {
 
         <View style={styles.controlItem}>
           <TouchableOpacity
-            onPress={handleEndCall}
+            onPress={() => void handleEndCall()}
             style={styles.endCallButton}
             activeOpacity={0.8}
           >
@@ -296,12 +412,10 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: "#21C16B",
   },
   onlineText: {
     fontSize: 12,
     fontFamily: "Poppins-Regular",
-    color: "#21C16B",
     lineHeight: 16,
   },
   lessonBadge: {
@@ -343,6 +457,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 4,
+    overflow: "hidden",
+  },
+  avatarImage: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+  },
+  avatarInitials: {
+    fontSize: 22,
+    fontFamily: "Poppins-SemiBold",
+    color: "#FFFFFF",
   },
   mascotImage: {
     position: "absolute",
@@ -350,6 +475,56 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 72,
     height: 270,
+  },
+  reconnectingOverlay: {
+    position: "absolute",
+    top: 12,
+    left: 16,
+    backgroundColor: "#F59E0B",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    zIndex: 20,
+  },
+  reconnectingText: {
+    fontSize: 12,
+    fontFamily: "Poppins-SemiBold",
+    color: "#FFFFFF",
+  },
+  mutedBadge: {
+    position: "absolute",
+    bottom: 84,
+    left: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#374151",
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    zIndex: 20,
+  },
+  mutedText: {
+    fontSize: 12,
+    fontFamily: "Poppins-SemiBold",
+    color: "#FFFFFF",
+  },
+  agentStatusBadge: {
+    position: "absolute",
+    bottom: 84,
+    right: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    zIndex: 20,
+  },
+  agentStatusText: {
+    fontSize: 12,
+    fontFamily: "Poppins-SemiBold",
+    color: "#FFFFFF",
   },
   speechBubble: {
     position: "absolute",
