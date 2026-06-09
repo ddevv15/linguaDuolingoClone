@@ -11,11 +11,12 @@ import { Image } from "expo-image";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
-import { useSignIn, useSSO } from "@clerk/expo";
+import { useSignIn, useSSO, useClerk } from "@clerk/expo";
 import { images } from "@/constants/images";
 import AuthInputField from "@/components/AuthInputField";
 import VerificationModal from "@/components/VerificationModal";
 import { posthog } from "@/lib/posthog";
+import { useLanguageStore } from "@/store/languageStore";
 
 // Required so the OAuth browser session closes cleanly on return
 WebBrowser.maybeCompleteAuthSession();
@@ -73,12 +74,26 @@ function SocialButton({
 export default function SignInScreen() {
   const { signIn, fetchStatus } = useSignIn();
   const { startSSOFlow } = useSSO();
+  const clerk = useClerk();
+  const { selectedLanguage } = useLanguageStore();
 
   const [email, setEmail] = useState("");
   const [modalVisible, setModalVisible] = useState(false);
   const [error, setError] = useState("");
 
   const isLoading = fetchStatus === "fetching";
+
+  // Identify the now-active Clerk user with PostHog. Reads `clerk.user`
+  // directly (rather than the `useAuth`/`useUser` hook values) because this
+  // runs in `setActive`/`finalize` callbacks where the hooks' render-cycle
+  // values can still be stale — `clerk.user` reflects the session set moments ago.
+  function identifySignedInUser() {
+    const userId = clerk.user?.id;
+    if (!userId) return;
+    posthog.identify(userId, {
+      $set: { email, preferred_language: selectedLanguage?.code ?? null },
+    });
+  }
 
   // Email-code (OTP) sign-in — matches the existing UI which only collects email
   async function handleSignIn() {
@@ -109,10 +124,7 @@ export default function SignInScreen() {
     }
     await signIn.finalize({
       navigate: () => {
-        posthog.identify(email, {
-          $set: { email },
-          $set_once: { first_sign_in_date: new Date().toISOString() },
-        });
+        identifySignedInUser();
         posthog.capture("sign_in_completed", { method: "email_otp" });
         setModalVisible(false);
         router.replace("/(tabs)");
@@ -133,6 +145,7 @@ export default function SignInScreen() {
       });
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
+        identifySignedInUser();
         posthog.capture("sign_in_completed", { method: "google" });
         router.replace("/");
       }
@@ -152,6 +165,7 @@ export default function SignInScreen() {
       });
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
+        identifySignedInUser();
         posthog.capture("sign_in_completed", { method: "apple" });
         router.replace("/");
       }

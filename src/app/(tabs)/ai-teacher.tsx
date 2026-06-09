@@ -1,15 +1,13 @@
 import { View, Text, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, Redirect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useLanguageStore } from "@/store/languageStore";
 import { useUserProgressStore } from "@/store/userProgressStore";
 import { getUnitsByLanguage } from "@/data/units";
 import { getLessonsByUnit } from "@/data/lessons";
-import AudioLessonView from "@/components/AudioLessonView";
-import type { Language } from "@/types/learning";
-import type { Lesson } from "@/types/learning";
+import type { Language, Lesson } from "@/types/learning";
 
 function getCurrentLesson(
   selectedLanguage: Language | null,
@@ -85,15 +83,8 @@ export default function AITeacherScreen() {
     );
   }
 
-  return (
-    <SafeAreaView
-      style={{ flex: 1, backgroundColor: "#FFFFFF" }}
-      edges={["top"]}
-    >
-      <AudioLessonView
-        lesson={lesson}
-        onEnd={() => router.replace("/(tabs)/learn")}
-      />
-    </SafeAreaView>
-  );
+  // The AI Teacher tab is just an entry point — the lesson screen owns Stream
+  // setup (`<StreamVideo>`/`<StreamCall>`) so `AudioLessonView`'s call hooks
+  // have a context to read from. Hand off to it instead of rendering here.
+  return <Redirect href={`/lesson/${lesson.id}`} />;
 }
