@@ -11,11 +11,12 @@ import { Image } from "expo-image";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
-import { useSignUp, useSSO } from "@clerk/expo";
+import { useSignUp, useSSO, useClerk } from "@clerk/expo";
 import { images } from "@/constants/images";
 import AuthInputField from "@/components/AuthInputField";
 import VerificationModal from "@/components/VerificationModal";
 import { posthog } from "@/lib/posthog";
+import { useLanguageStore } from "@/store/languageStore";
 
 // Required so the OAuth browser session closes cleanly on return
 WebBrowser.maybeCompleteAuthSession();
@@ -73,6 +74,8 @@ function SocialButton({
 export default function SignUpScreen() {
   const { signUp, fetchStatus } = useSignUp();
   const { startSSOFlow } = useSSO();
+  const clerk = useClerk();
+  const { selectedLanguage } = useLanguageStore();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -81,6 +84,22 @@ export default function SignUpScreen() {
   const [error, setError] = useState("");
 
   const isLoading = fetchStatus === "fetching";
+
+  // Identify the freshly-created Clerk user with PostHog. Reads `clerk.user`
+  // directly (rather than the `useAuth`/`useUser` hook values) because this
+  // runs in `setActive`/`finalize` callbacks where the hooks' render-cycle
+  // values can still be stale — `clerk.user` reflects the session set moments ago.
+  // `$set_once` on `signup_date` is safe to send on every identify call: PostHog
+  // only stores it the very first time a property is set on a person, which is
+  // exactly the "first identify after sign-up" semantics we want.
+  function identifyNewUser() {
+    const userId = clerk.user?.id;
+    if (!userId) return;
+    posthog.identify(userId, {
+      $set: { email, preferred_language: selectedLanguage?.code ?? null },
+      $set_once: { signup_date: new Date().toISOString() },
+    });
+  }
 
   async function handleSignUp() {
     setError("");
@@ -113,10 +132,7 @@ export default function SignUpScreen() {
     }
     await signUp.finalize({
       navigate: () => {
-        posthog.identify(email, {
-          $set: { email },
-          $set_once: { sign_up_date: new Date().toISOString() },
-        });
+        identifyNewUser();
         posthog.capture("sign_up_completed", { method: "email_password" });
         setModalVisible(false);
         router.replace("/(tabs)");
@@ -137,6 +153,7 @@ export default function SignUpScreen() {
       });
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
+        identifyNewUser();
         posthog.capture("sign_up_completed", { method: "google" });
         router.replace("/");
       }
@@ -156,6 +173,7 @@ export default function SignUpScreen() {
       });
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
+        identifyNewUser();
         posthog.capture("sign_up_completed", { method: "apple" });
         router.replace("/");
       }

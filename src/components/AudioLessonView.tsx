@@ -11,7 +11,9 @@ import {
 
 import { useUserProgressStore } from "@/store/userProgressStore";
 import { useAgentSession, type AgentStatus } from "@/hooks/useAgentSession";
+import LiveCaptions from "@/components/LiveCaptions";
 import { images } from "@/constants/images";
+import { posthog } from "@/lib/posthog";
 import type { Lesson } from "@/types/learning";
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -75,6 +77,8 @@ function getSpeech(lesson: Lesson, index: number): SpeechContent {
 
 type Props = {
   lesson: Lesson;
+  /** Display name of the lesson's language, e.g. "Spanish" — used for analytics */
+  language?: string;
   /** Called after lesson completion + XP award — parent handles navigation */
   onEnd: () => void;
   /** If provided, a back button is rendered and calls this on press */
@@ -86,6 +90,7 @@ type Props = {
 
 export default function AudioLessonView({
   lesson,
+  language,
   onEnd,
   onBack,
   userName,
@@ -112,6 +117,41 @@ export default function AudioLessonView({
   const [wordIndex, setWordIndex] = useState(0);
 
   const hasCompleted = useRef(false);
+
+  // Captured once on mount so `lesson_abandoned` can report an accurate
+  // elapsed time regardless of re-renders.
+  const lessonStartedAt = useRef(Date.now());
+  // Mirrors `wordIndex` so the unmount cleanup below (a stable closure with
+  // empty deps) can read the latest progress instead of its initial value.
+  const wordIndexRef = useRef(wordIndex);
+  useEffect(() => {
+    wordIndexRef.current = wordIndex;
+  }, [wordIndex]);
+
+  // ── Lesson lifecycle analytics ─────────────────────────────────────────────
+  // This view only mounts once the call has joined and the lesson UI is shown,
+  // so its mount/unmount line up with "the user begins/leaves the lesson".
+  useEffect(() => {
+    const startedAt = lessonStartedAt.current;
+
+    posthog.capture("lesson_started", {
+      lesson_id: lesson.id,
+      language: language ?? "",
+      lesson_number: lesson.order,
+    });
+
+    return () => {
+      if (!hasCompleted.current) {
+        posthog.capture("lesson_abandoned", {
+          lesson_id: lesson.id,
+          time_into_lesson_seconds: Math.round((Date.now() - startedAt) / 1000),
+          last_question_index: wordIndexRef.current,
+        });
+      }
+    };
+    // Fire once per mounted lesson — `lesson`/`language` are stable for the view's lifetime.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const totalItems = getItemCount(lesson);
   const isComplete = wordIndex >= totalItems;
@@ -257,6 +297,9 @@ export default function AudioLessonView({
           <Ionicons name={agentStatusMeta.icon} size={13} color="#FFFFFF" />
           <Text style={styles.agentStatusText}>{agentStatusMeta.label}</Text>
         </View>
+
+        {/* Live captions — real-time transcription of the teacher and student */}
+        {showSubtitles && <LiveCaptions />}
 
         {showSubtitles && (
           <View style={styles.speechBubble}>

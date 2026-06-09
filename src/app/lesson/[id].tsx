@@ -23,6 +23,9 @@ type CallStatus = "connecting" | "joined" | "error";
 export default function LessonScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const lesson = id ? getLessonById(id) : undefined;
+  const language = lesson
+    ? getLanguageById(getUnitById(lesson.unitId)?.languageId ?? "")
+    : undefined;
 
   const { userId, getToken } = useAuth();
   const { user } = useUser();
@@ -86,7 +89,6 @@ export default function LessonScreen() {
         const callId = `lesson-${id}-${userId}`;
         activeCall = client.call("audio_room", callId, { reuseInstance: true });
 
-        const language = getLanguageById(getUnitById(lesson.unitId)?.languageId ?? "");
         const vocabulary = lesson.activities
           .filter((activity): activity is Extract<Activity, { type: "vocabulary" }> => activity.type === "vocabulary")
           .flatMap((activity) => activity.items);
@@ -121,6 +123,11 @@ export default function LessonScreen() {
         await activeCall.microphone.enable();
         // audio_room calls start in backstage — go live so the agent can join and publish audio.
         await activeCall.goLive();
+        // Live captions for both the AI teacher and the student — transcribes
+        // every participant's speech in real time (see `LiveCaptions`).
+        await activeCall
+          .startClosedCaptions()
+          .catch((err) => console.error("[LessonScreen] startClosedCaptions error:", err));
 
         if (cleanedUp.current) return;
         setCall(activeCall);
@@ -215,6 +222,7 @@ export default function LessonScreen() {
         >
           <AudioLessonView
             lesson={lesson}
+            language={language?.name}
             userName={user?.fullName ?? user?.firstName ?? undefined}
             userImage={user?.imageUrl ?? undefined}
             onEnd={() => router.back()}
